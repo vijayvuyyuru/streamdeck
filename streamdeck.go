@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/disintegration/gift"
 	"github.com/golang/freetype"
@@ -155,12 +156,20 @@ func (sd *StreamDeck) read(ctx context.Context) {
 	defer sd.waitGroup.Done()
 	myState := State{}
 
+	var lastErr error
+	var lastErrTime time.Time
+
 	for ctx.Err() == nil {
 		data := make([]byte, 24)
 		_, err := sd.device.Read(data)
 		if err != nil {
+			if lastErr != nil && err.Error() == lastErr.Error() && time.Since(lastErrTime) < 10*time.Second {
+				continue
+			}
+			lastErr = err
+			lastErrTime = time.Now()
 			fmt.Println(err)
-			return
+			continue
 		}
 
 		debug("read data:", data)
